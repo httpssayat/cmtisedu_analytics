@@ -1,0 +1,48 @@
+# ═══════════════════════════════════════════════════════════════
+# SYSTEMD SERVICE для CmtisEdu Analytics Web App
+#
+# Установка на сервере:
+#   1. Скопируйте этот файл: sudo cp cmtis-analytics.service /etc/systemd/system/
+#   2. Отредактируйте пути и пользователя под ваш сервер
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable cmtis-analytics
+#   5. sudo systemctl start cmtis-analytics
+#   6. sudo systemctl status cmtis-analytics
+# ═══════════════════════════════════════════════════════════════
+
+[Unit]
+Description=CmtisEdu Analytics Web Dashboard
+After=network.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=analytics
+Group=analytics
+WorkingDirectory=/opt/cmtis_analytics
+
+# Переменные окружения (секреты — в /etc/cmtis-analytics.env, читайте только root'ом!)
+EnvironmentFile=/etc/cmtis-analytics.env
+
+# Запуск через gunicorn (production WSGI сервер)
+ExecStart=/usr/bin/gunicorn \
+    --workers 2 \
+    --bind 0.0.0.0:8000 \
+    --timeout 120 \
+    --access-logfile /var/log/cmtis-analytics/access.log \
+    --error-logfile /var/log/cmtis-analytics/error.log \
+    webapp.app:app
+
+# Автоперезапуск при падении
+Restart=on-failure
+RestartSec=5s
+
+# Безопасность: ограничиваем права процесса
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cmtis_analytics/data /opt/cmtis_analytics/dashboard /var/log/cmtis-analytics
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

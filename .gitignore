@@ -1,0 +1,9 @@
+__MACOSX/
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+moodle_dump.sql.gz
+data/
+*.env

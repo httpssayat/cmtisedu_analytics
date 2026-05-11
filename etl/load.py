@@ -25,17 +25,26 @@ class Loader:
         print(f"Загрузка в warehouse: {self.db_path}")
         with sqlite3.connect(self.db_path) as conn:
             for name, df in tables.items():
-                if df is None or df.empty:
+                if df is None:
                     print(f"  - {name}: пусто, пропуск")
                     continue
-                # Datetime колонки приводим к ISO-строкам (SQLite их нормально хранит)
+
                 df_to_save = df.copy()
                 for col in df_to_save.columns:
                     if pd.api.types.is_datetime64_any_dtype(df_to_save[col]):
                         df_to_save[col] = df_to_save[col].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                df_to_save.to_sql(name, conn, if_exists="replace", index=False)
-                print(f"  ✓ {name}: {len(df_to_save)} записей")
+                if df_to_save.empty:
+                    if len(df_to_save.columns) == 0:
+                        print(f"  - {name}: нет схемы, пропуск")
+                        continue
+                    conn.execute(f"DROP TABLE IF EXISTS \"{name}\"")
+                    cols_sql = ", ".join(f'"{c}" TEXT' for c in df_to_save.columns)
+                    conn.execute(f'CREATE TABLE "{name}" ({cols_sql})')
+                    print(f"  ○ {name}: пусто (таблица создана без строк)")
+                else:
+                    df_to_save.to_sql(name, conn, if_exists="replace", index=False)
+                    print(f"  ✓ {name}: {len(df_to_save)} записей")
 
             self._create_indexes(conn)
             self._record_run(conn)
